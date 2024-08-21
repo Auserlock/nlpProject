@@ -62,4 +62,4 @@ print('acc:{0},precision:{1},recall:{2},f1:{3}.'.format(acc,precision,recall,f1)
 
 # 测试集
 test['Sentiment']=clf.predict(test_features)
-test.to_csv('./submission.csv',index=False,columns=['PhraseId','Sentiment'])
+test.to_csv('../data/submission.csv',index=False,columns=['PhraseId','Sentiment'])
