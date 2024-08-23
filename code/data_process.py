@@ -1,5 +1,5 @@
-import numpy as np
 import pandas as pd
+import tensorflow as tf
 from scipy.sparse import hstack
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -78,14 +78,9 @@ class DataProcess(object):
         x_train_svd, x_val_svd = self.apply_svd(x_train_combined, x_val_combined, n_components=n_components)
         return x_train_svd, x_val_svd, y_train, y_val
 
-    # 迭代器，将数据分批传给模型
-    def batch_iter(self, x, y, batch_size=64):
-        data_len = len(x)
-        num_batch = int((data_len - 1) / batch_size) + 1
-        indices = np.random.permutation(np.arange(data_len))
-        x_shuffle = x[indices]
-        y_shuffle = y[indices]
-        for i in range(num_batch):
-            start_id = i * batch_size
-            end_id = min((i + 1) * batch_size, data_len)
-            yield x_shuffle[start_id: end_id], y_shuffle[start_id: end_id]
+    def get_dataset(self, x, y, batch_size=64, shuffle_buffer_size=None):
+        dataset = tf.data.Dataset.from_tensor_slices((x, y))
+        if shuffle_buffer_size:
+            dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
+        dataset = dataset.batch(batch_size)
+        return dataset
