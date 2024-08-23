@@ -1,18 +1,14 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.sparse import hstack
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split
 
-dir_data = '../data/train.tsv'
-dir_test = '../data/test.tsv'
-
 
 class DataProcess(object):
-    def __init__(self, data_path=None, model_path=None):
+    def __init__(self, data_path=None):
         self.data_path = data_path
-        self.model_path = model_path
 
     def read_data(self):
         data = pd.read_csv(self.data_path, sep='\t')
