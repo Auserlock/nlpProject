@@ -1,100 +1,81 @@
-import pandas as pd
-import tensorflow as tf
-from scipy.sparse import hstack
-from sklearn.decomposition import TruncatedSVD
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.model_selection import train_test_split
+import numpy as np
+import random as rd
 
 
-class DataProcess(object):
-    def __init__(self, data_path=None, test_path=None):
-        self.data_path = data_path
-        self.test_path = test_path
+def split_train_test(data, test_rate=0.3, maxitem=1000):
+    train, test = [], []
+    for i, item in enumerate(data[:maxitem]):
+        if rd.random() > test_rate:
+            train.append(item)
+        else:
+            test.append(item)
+    return train, test
 
-    def read_data(self):
-        data = pd.read_csv(self.data_path, sep='\t')
-        test = pd.read_csv(self.test_path, sep='\t')
-        test = test.fillna('None')
-        return data, test
 
-    # 数据预处理
-    def process_data(self, data, test_size=0.2):
-        x = data['Phrase']
-        y = data['Sentiment']
-        return train_test_split(x, y, test_size=test_size, random_state=42)
+class BaseTextProcessor:
+    def __init__(self, data, maxitem=1000):
+        self.data = data[:maxitem]
+        self.maxitem = maxitem
+        self.words = {}
+        self.len = 0
+        self.train, self.test = split_train_test(data, test_rate=0.3, maxitem=maxitem)
+        self.train_sentiment = [int(term[3]) for term in self.train]
+        self.test_sentiment = [int(term[3]) for term in self.test]
+        self.train_matrix = None
+        self.test_matrix = None
 
-    # 提取词袋模型特征
-    def get_bow(self, x_train, x_val, x_test, min_df=1):
-        vectorizer = CountVectorizer(min_df=min_df)
-        x_train_bow = vectorizer.fit_transform(x_train)
-        x_val_bow = vectorizer.transform(x_val)
-        x_test_bow = vectorizer.transform(x_test)
-        return x_train_bow, x_val_bow, x_test_bow, vectorizer
+    def initialize_matrices(self):
+        self.train_matrix = np.zeros((len(self.train), self.len))
+        self.test_matrix = np.zeros((len(self.test), self.len))
 
-    # 提取tf-idf特征(word)
-    def get_tfidf(self, x_train, x_val, x_test, min_df=1):
-        vectorizer = TfidfVectorizer(min_df=min_df)
-        x_train_tfidf = vectorizer.fit_transform(x_train)
-        x_val_tfidf = vectorizer.transform(x_val)
-        x_test_tfidf = vectorizer.transform(x_test)
-        return x_train_tfidf, x_val_tfidf, x_test_tfidf, vectorizer
+    def fill_matrix(self, data, matrix):
+        raise NotImplementedError("This method should be implemented by subclasses.")
 
-    # 提取tf-idf特征(ngram)
-    def get_tfidf_ngram(self, x_train, x_val, x_test, min_df=1, ngram_range=(2, 3), max_features=None):
-        vectorizer = TfidfVectorizer(min_df=min_df, ngram_range=ngram_range, max_features=max_features)
-        x_train_tfidf_ngram = vectorizer.fit_transform(x_train)
-        x_val_tfidf_ngram = vectorizer.transform(x_val)
-        x_test_tfidf_ngram = vectorizer.transform(x_test)
-        return x_train_tfidf_ngram, x_val_tfidf_ngram, x_test_tfidf_ngram, vectorizer
+    def get_matrix(self):
+        self.fill_matrix(self.train, self.train_matrix)
+        self.fill_matrix(self.test, self.test_matrix)
 
-    # 合并特征
-    def combine_features(self, x_train, x_val, x_test, min_df=1, ngram_range=(2, 3), max_features=None):
-        x_train_bow, x_val_bow, x_test_bow, bow_vectorizer = self.get_bow(x_train, x_val, x_test, min_df=min_df)
 
-        x_train_tfidf, x_val_tfidf, x_test_tfidf, tfidf_vectorizer = self.get_tfidf(x_train, x_val, x_test,
-                                                                                    min_df=min_df)
+class BagOfWords(BaseTextProcessor):
+    def get_words(self):
+        all_data = self.train + self.test
+        for term in all_data:
+            words = term[2].upper().split()
+            for word in words:
+                if word not in self.words:
+                    self.words[word] = len(self.words)
+        self.len = len(self.words)
+        self.initialize_matrices()
 
-        x_train_tfidf_ngram, x_val_tfidf_ngram, x_test_tfidf_ngram, tfidf_ngram_vectorizer = self.get_tfidf_ngram(
-            x_train, x_val, x_test, min_df=min_df, ngram_range=ngram_range, max_features=max_features)
+    def fill_matrix(self, data, matrix):
+        for i, sample in enumerate(data):
+            words = sample[2].upper().split()
+            for word in words:
+                if word in self.words:
+                    matrix[i][self.words[word]] = 1
 
-        x_train_combined = hstack([x_train_bow, x_train_tfidf, x_train_tfidf_ngram])
-        x_val_combined = hstack([x_val_bow, x_val_tfidf, x_val_tfidf_ngram])
-        x_test_combined = hstack([x_test_bow, x_test_tfidf, x_test_tfidf_ngram])
 
-        return x_train_combined, x_val_combined, x_test_combined
+class Ngram(BaseTextProcessor):
+    def __init__(self, data, dimension=3, maxitem=1000):
+        self.dimension = dimension
+        super().__init__(data, maxitem)
 
-    # 降低维度
-    def apply_svd(self, x_train, x_val, x_test, n_components=1000):
-        svd = TruncatedSVD(n_components=n_components)
-        x_train_svd = svd.fit_transform(x_train)
-        x_val_svd = svd.transform(x_val)
-        x_test_svd = svd.transform(x_test)
-        return x_train_svd, x_val_svd, x_test_svd
+    def get_words(self):
+        for d in range(1, self.dimension + 1):
+            for term in self.data:
+                words = term[2].upper().split()
+                for i in range(len(words) - d + 1):
+                    word = '_'.join(words[i:i + d])
+                    if word not in self.words:
+                        self.words[word] = len(self.words)
+        self.len = len(self.words)
+        self.initialize_matrices()
 
-    # word2vec 特征提取
-    def word2vec(self, x_train, x_val, x_test):
-        pass
-
-    # 提供数据
-    def provide_data(self, min_df=1, ngram_range=(2, 2), max_features=None, n_components=1000):
-        print('Processing and Providing data...')
-        data, test = self.read_data()
-        x_test = test['Phrase']
-        #  1、特征提取与组合
-        x_train, x_val, y_train, y_val = self.process_data(data)
-        x_train_combined, x_val_combined, x_test_combined = self.combine_features(x_train, x_val, x_test, min_df=min_df,
-                                                                                  ngram_range=ngram_range,
-                                                                                  max_features=max_features)
-
-        #  2、降低维度
-        x_train_svd, x_val_svd, x_test_svd = self.apply_svd(x_train_combined, x_val_combined, x_test_combined,
-                                                            n_components=n_components)
-        return x_train_svd, x_val_svd, y_train, y_val, x_test_svd, test
-
-    # 转换为tensorflow数据集
-    def get_dataset(self, x, y, batch_size=64, shuffle_buffer_size=None):
-        dataset = tf.data.Dataset.from_tensor_slices((x, y))
-        if shuffle_buffer_size:
-            dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
-        dataset = dataset.batch(batch_size)
-        return dataset
+    def fill_matrix(self, data, matrix):
+        for idx, sample in enumerate(data):
+            words = sample[2].upper().split()
+            for d in range(1, self.dimension + 1):
+                for j in range(len(words) - d + 1):
+                    word = '_'.join(words[j:j + d])
+                    if word in self.words:
+                        matrix[idx][self.words[word]] = 1

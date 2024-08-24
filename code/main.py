@@ -1,44 +1,32 @@
-from data_process import DataProcess
-from lr_model import Lr_Model
-from lr_config import LrConfig
-import matplotlib.pyplot as plt
+# Description: This file is the main file for the project. It will be used to run the project.
+import numpy as np
+import csv
+import random as rd
+from data_process import BagOfWords, Ngram
+from process_compare import alpha_gradient
 
-if __name__ == '__main__':
-    config = LrConfig()
-    DataProcess = DataProcess(config.dataset_path, config.testdata_path)
-    Lr_Model = Lr_Model(config)
-    x_train_svd, x_val_svd, y_train, y_val, x_test_svd, test = DataProcess.provide_data()
-    Lr_Model.build_model()
-    Lr_Model.summary()
-    Lr_Model.compile()
-    history = Lr_Model.fit(DataProcess.get_dataset(x_train_svd, y_train, 128, 100000),
-                           DataProcess.get_dataset(x_val_svd, y_val, 128, 10000))
+with open('../data/train.tsv') as f:
+    tsv_data = csv.reader(f, delimiter='\t')
+    temp = list(tsv_data)
 
-    history_dict = history.history
-    acc = history_dict['accuracy']
-    val_acc = history_dict['val_accuracy']
-    loss = history_dict['loss']
-    val_loss = history_dict['val_loss']
+data = temp[1:]  #取出数据(去掉第一行)
+max_item = 1000  #最大数据量
+rd.seed(2024)  #设置随机种子,保证每次结果一样,便于比较
+np.random.seed(2024)
 
-    epochs = range(1, len(acc) + 1)
+# 词袋模型和N-gram模型提取特征
+# 分别进行两种数据量的处理，同时比较词袋模型和N-gram模型(bigram, trigram)的特征提取效果
+bag = BagOfWords(data, max_item)
+bag.get_words()
+bag.get_matrix()
 
-    plt.plot(epochs, loss, 'bo', label='Training loss')  # 'bo' 表示蓝色的点
-    plt.plot(epochs, val_loss, 'b-', label='Validation loss')  # 'b-' 表示蓝色的线
-    plt.title('Training and validation loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.show()
+bigram = Ngram(data, 2, max_item)
+bigram.get_words()
+bigram.get_matrix()
 
-    plt.plot(epochs, acc, 'bo', label='Training accuracy')  # 'bo' 表示蓝色的点
-    plt.plot(epochs, val_acc, 'b-', label='Validation accuracy')  # 'b-' 表示蓝色的线
-    plt.title('Training and validation accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend(loc='lower right')
-    plt.show()
+trigram = Ngram(data, 3, max_item)
+trigram.get_words()
+trigram.get_matrix()
 
-    Lr_Model.save()
-    predict = Lr_Model.predict(x_test_svd)
-    test['Sentiment'] = predict
-    test.to_csv(config.predict_save_path, index=False, columns=['PhraseId', 'Sentiment'])
+alpha_gradient(bag, bigram, trigram, 10000, 10)
+alpha_gradient(bag, bigram, trigram, 50000, 10)
