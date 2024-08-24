@@ -67,12 +67,13 @@ class DataProcess(object):
         pass
 
     # 提供数据
-    def provide_data(self, min_df=1, n_components=1000):
+    def provide_data(self, min_df=1, ngram_range=(2, 3), max_features=None, n_components=1000):
         data = self.read_data()
 
         #  1、特征提取与组合
         x_train, x_val, y_train, y_val = self.process_data(data)
-        x_train_combined, x_val_combined = self.combine_features(x_train, x_val, min_df=min_df)
+        x_train_combined, x_val_combined = self.combine_features(x_train, x_val, min_df=min_df, ngram_range=ngram_range,
+                                                                 max_features=max_features)
 
         #  2、降低维度
         x_train_svd, x_val_svd = self.apply_svd(x_train_combined, x_val_combined, n_components=n_components)
