@@ -35,7 +35,7 @@ class Lr_Model:
     def summary(self):
         print(self.model.summary())
 
-    def compile(self, learning_rate=0.01):  # 学习率
+    def compile(self, learning_rate=0.1):  # 学习率
         self.model.compile(optimizer=Adam(learning_rate=learning_rate),
                            loss=losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
 
