@@ -1,6 +1,7 @@
 from data_process import DataProcess
 from lr_model import Lr_Model
 from lr_config import LrConfig
+from getaccuracy import AccuracyEvaluator
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
@@ -42,3 +43,10 @@ if __name__ == '__main__':
     predict = Lr_Model.predict(x_test_svd)
     test['Sentiment'] = predict
     test.to_csv(config.predict_save_path, index=False, columns=['PhraseId', 'Sentiment'])
+
+    # 实例化 AccuracyEvaluator 类
+    evaluator = AccuracyEvaluator(config.predict_save_path, config.sampleSubmission_path)
+
+    # 计算准确率
+    accuracy = evaluator.calculate_accuracy()
+    print(f"测试集的准确率为: {accuracy:.4f}")
