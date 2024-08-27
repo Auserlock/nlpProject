@@ -9,6 +9,6 @@ class LrConfig(object):
     testdata_path = os.path.join(pwd_path + r'/data' + r"/test.tsv")
     model_save_path = os.path.join(pwd_path + r'/model' + r"/classification_model.keras")
     predict_save_path = os.path.join(pwd_path + r'/data' + r"/submission.csv")
-
+    sampleSubmission_path = os.path.join(pwd_path + r'/data' + r"/sampleSubmission.csv")
     #  变量
     num_epochs = 20
